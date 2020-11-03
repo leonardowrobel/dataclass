@@ -8,7 +8,7 @@ $client->setScopes(Google_Service_Sheets::SPREADSHEETS);
 $client->setAuthConfig(__DIR__ . '/credentials.json');
 $client->setAccessType('offline');
 
-$service = new Google_Service_Sheets($client); 
+$service = new Google_Service_Sheets($client);
 $spreadsheetId = "1ls_2SPIzClGAWovZ7-Xau0IO6OQT_xqNr8QxuwbTmUQ";
 
 $rangeGrades = "Semester_1!A4:F27";
@@ -17,25 +17,48 @@ $response = $service->spreadsheets_values->get($spreadsheetId, $rangeGrades);
 $valuesGrades = $response->getValues();
 $response = $service->spreadsheets_values->get($spreadsheetId, $rangeTotalClasses);
 $totalClasses = $response->getValues()[0][0];
-$maxClassAbsences = round (25 * $totalClasses / 100);
+$maxClassAbsences = round(25 * $totalClasses / 100);
 
-if(empty($valuesGrades)){
+$rangeResults = "Semester_1!G4:H27";
+$valuesResults = array();
+
+if (empty($valuesGrades)) {
     print "No data.\r\n";
-} else {       
-    echo "\r\n============================================\r\n\r\n"; 
-    foreach($valuesGrades as $row){
-        $gradesAvg = round (($row[3] + $row[4] + $row[5])/3);
-        echo $row[0] . " - " . $row[1] . " - AVG: " . $gradesAvg . " - ";
-        if($row[2] > $maxClassAbsences ){
-            echo " Failed by absences.\r\n";
-        } else {            
-            if($gradesAvg >= 70){
-                echo " Pass.\r\n";
+} else {
+    //echo "\r\n============================================\r\n\r\n";
+    foreach ($valuesGrades as $row) {
+        $gradesAvg = round(($row[3] + $row[4] + $row[5]) / 3);
+        $status = "";
+        $msp = "";
+        //echo $row[0] . " - " . $row[1] . " - AVG: " . $gradesAvg . " - ";
+        if ($row[2] > $maxClassAbsences) {
+            //echo " Failed by absences.\r\n";
+            $status = "Reprovado";
+        } else {
+            if ($gradesAvg >= 70) {
+                //echo " Pass.\r\n";
+                $status = "Aprovado";
             } else {
                 $msp = 100 - $gradesAvg;
-                echo " Final Exam. [Minimum Score to Pass:" . $msp . "]\r\n";
+                $status = "Final";
+                //echo " Final Exam. [Minimum Score to Pass:" . $msp . "]\r\n";
             }
         }
-        
+        $valuesResults[] = [$status, $msp];
     }
+    //foreach($valuesResults as $row){   
+    //    echo " - " . $row[0] . " - " . $row[1] . "\r\n";
+    //} 
+    $body = new Google_Service_Sheets_ValueRange([
+        'values' => $valuesResults
+    ]);
+    $params = [
+        'valueInputOption' => 'RAW'
+    ];
+    $result = $service->spreadsheets_values->update(
+        $spreadsheetId,
+        $rangeResults,
+        $body,
+        $params
+    );
 }
